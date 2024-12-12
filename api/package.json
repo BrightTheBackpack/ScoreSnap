@@ -1,0 +1,23 @@
+{
+    "name": "new-express-project",
+    "version": "1.0.0",
+    "main": "api/index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "dependencies": {
+        "cors": "^2.8.5",
+        "express": "^4.19.2",
+        "firebase": "^10.12.2",
+        "pdfkit": "^0.15.1",
+        "svg-to-pdfkit": "^0.1.8",
+        "xmlhttprequest": "^1.8.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.14.9"
+    }
+}
