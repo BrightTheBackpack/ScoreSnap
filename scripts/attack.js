@@ -68,16 +68,10 @@ console.log("Content script loaded.");
 //     };
 // })
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("triggered")
-    console.log(sender)
-    if(sender["type"] == 'msg_from_popup'){
-        console.log("msg receive from popup");
-        
-        sendResponse("test");// this is how you send message to popup
-       
+    if (message.type === 'invoke_grabber') {
+        grabber();
+        sendResponse({status: 'grabber invoked'});
     }
-
-    return true
 });
 
 function delay(ms) {
