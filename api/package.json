@@ -10,14 +10,21 @@
     "license": "ISC",
     "description": "",
     "dependencies": {
+        "cheerio": "^1.0.0-rc.11",
+        "convert-svg-to-png": "^0.6.4",
         "cors": "^2.8.5",
         "express": "^4.19.2",
-        "firebase": "^10.12.2",
         "pdfkit": "^0.15.1",
+        "request": "^2.88.2",
         "svg-to-pdfkit": "^0.1.8",
         "xmlhttprequest": "^1.8.0"
     },
     "devDependencies": {
         "@types/node": "^20.14.9"
+    },
+    "pnpm": {
+        "overrides": {
+            "cheerio": "1.0.0-rc.11"
+        }
     }
 }

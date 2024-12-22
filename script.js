@@ -7,7 +7,6 @@ async function grab() {
     if (tab.url.includes("musescore.com/user")) {
         chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
             chrome.tabs.sendMessage(tabs[0].id, {type: "msg_from_popup"}, function(response) {
-                alert(response);
             });
         });
         return tab.url;
@@ -19,10 +18,16 @@ async function grab() {
 }
 
 document.getElementById("button").addEventListener("click", async () => {
-    if (!grabbing) grab();
+    // if (!grabbing) grab();
     console.log('clicked');
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    chrome.tabs.sendMessage(tab.id, {type: 'invoke_grabber'}, function(response) {
-        console.log(response.status);
+    chrome.tabs.sendMessage(tab.id, {type: 'pdf'}, function(response) {
+        // console.log(response.status);
     });
 });
+document.getElemetnById("midi").addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    chrome.tabs.sendMessage(tab.id, {type: 'midi'}, function(response) {
+        // console.log(response.status);
+    });
+})
