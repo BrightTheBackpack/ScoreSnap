@@ -17,8 +17,7 @@
         {
           "js": ["scripts/attack.js"],
           "matches": [
-            "https://musescore.com/*",
-            "https://developer.chrome.com/docs/extensions/get-started/tutorial/*"
+            "https://musescore.com/*"
           ],
           "type": "module"
         }
@@ -30,6 +29,7 @@
         "activeTab",
         "scripting",
         "storage",
+        "webRequest",
         "declarativeContent"
    ]
 

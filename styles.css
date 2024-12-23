@@ -8,7 +8,7 @@ button {
     display: inline-block;
     font-size: 16px;
     width: 125px;
-    margin: 4px 2px;
+    margin: 2px 2px;
     cursor: pointer;
     border-radius:4px;
 }
@@ -16,7 +16,7 @@ button {
     background-color: #21292100;
     border: none;
     color: rgba(255, 255, 255, 0);
-    padding: 5px 10px;
+    padding: 5px 5px;
     text-align: center;
     text-decoration: none;
     display: inline-block;
@@ -26,17 +26,28 @@ button {
     border-radius:4px;
 }
 body{
-    background-color: #f2f2f2;
+    /* background: linear-gradient( rgba(30,30,33,1) 0%, rgba(219,219,233,1) 26%, rgba(0,212,255,1) 100%); */
     font-family: Arial, sans-serif;
     align-items: center;
-    width: 150px;
+    width: 250px;
     height: 300px;
     justify-content: center;
 }
+h1{
+    color: black;
+    margin-top: 30px;
+    font-size: 30px;
+    text-align: center;
+}
+h3 {
+    text-align: center;
+    font-weight: 100;
+}
 div{
+    top: -15px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    margin-top: 50px;
+    /* margin-top: 10px; */
 }
