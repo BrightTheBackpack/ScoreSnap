@@ -16,6 +16,7 @@
         "express": "^4.19.2",
         "pdfkit": "^0.15.1",
         "request": "^2.88.2",
+        "sharp": "^0.33.5",
         "svg-to-pdfkit": "^0.1.8",
         "xmlhttprequest": "^1.8.0"
     },
