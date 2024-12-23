@@ -67,6 +67,8 @@ app.get("/proccess", async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="merged_pdf.pdf"');
   
     const doc = new PDFDocument();
+    console.log('PDF document initialized');
+
     let urls = decodeURIComponent( req.query.urls).split(",");
     if (!urls || urls.length === 0) {
       throw new Error("No URLs provided");
@@ -99,7 +101,8 @@ app.get("/proccess", async (req, res) => {
         console.log('PNG dimensions:', metadata.width, 'x', metadata.height);
     
         doc.addPage({ size: [612, 792] });
-    
+        console.log('Adding image to PDF');
+
       
       
         const scaleFactor = Math.min(612 / png.width, 792 / png.height); 
@@ -108,6 +111,8 @@ app.get("/proccess", async (req, res) => {
   
         doc.image(png, 0, 0, { fit: [612, 792],align: 'center', valign: 'center' });
         await new Promise(resolve => setTimeout(resolve, 100));  
+        console.log('Flushing pages');
+
         doc.flushPages();  
 
       }else if(url.includes(".png")){
@@ -121,6 +126,15 @@ app.get("/proccess", async (req, res) => {
       }
   
     }
+    console.log('All files processed, ending document');
+    doc.on('end', () => {
+      console.log('PDF document ended successfully');
+    });
+    
+    // Handle any errors during PDF creation
+    doc.on('error', (err) => {
+      console.error('Error during PDF creation:', err);
+    });
     doc.end();
 
 
