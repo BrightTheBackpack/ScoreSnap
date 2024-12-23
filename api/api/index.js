@@ -75,57 +75,110 @@ app.get("/proccess", async (req, res) => {
     }
     let index = 0;
     doc.pipe(res);
-  
-    for (let index = 0; index < urls.length; index++) {
-      const url = urls[index];
-      console.log(url); // Check the URL being processed
+    const processUrls = urls.map(async(url, index)=>{
       if(url.includes(".svg")){
-        console.log('Starting image processing for URL:', url);
-
-        const response = await fetch(url);
-        console.log('Fetch response status:', response.status);
-
-        const data = await response.text();
-        console.log('SVG content length:', data.length);
-
-        if (!data || !data.includes("<svg")) {
-          throw new Error(`Invalid SVG content from ${url}`);
+        try {
+          console.log(`Starting conversion ${index + 1}`);
+          const response = await fetch(url);
+          const data = await response.text();
+          
+          if (!data || !data.includes("<svg")) {
+            throw new Error(`Invalid SVG content from ${url}`);
+          }
+  
+          // Optimize the conversion with reduced quality and size
+          const png = await sharp(Buffer.from(data)).png().toBuffer();    // Reduce quality for smaller file size.toBuffer();
+  
+          return { type: 'png', data: png, index };
+        } catch (error) {
+          console.error(`Error processing SVG ${index + 1}:`, error);
+          return { type: 'error', index };
         }
-        const scalerFactor = 4;
-        // const png = await convert(data);
-        console.log('Converting SVG to PNG...');
-
-        const png = await sharp(Buffer.from(data)).png().toBuffer();        
-        console.log('PNG buffer size:', png.length);
-        const metadata = await sharp(png).metadata();
-        console.log('PNG dimensions:', metadata.width, 'x', metadata.height);
-    
-        doc.addPage({ size: [612, 792] });
-        console.log('Adding image to PDF');
-
-      
-      
-        const scaleFactor = Math.min(612 / png.width, 792 / png.height); 
-        const imgWidth = png.width * scaleFactor;
-        const imgHeight = png.height * scaleFactor;
   
-        doc.image(png, 0, 0, { fit: [612, 792],align: 'center', valign: 'center' });
-        await new Promise(resolve => setTimeout(resolve, 100));  
-        console.log('Flushing pages');
-
-        doc.flushPages();  
-
       }else if(url.includes(".png")){
-        let img = await getImageDataUri(url);
-        doc.addPage({ size: [612, 792] });
-        console.log(img)
-        doc.image(img, 0, 0, { fit: [612, 792] });
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        doc.flushPages();  
+        try {
+          const img = await getImageDataUri(url);
+          return { type: 'uri', data: img, index };
+        } catch (error) {
+          console.error(`Error processing PNG ${index + 1}:`, error);
+          return { type: 'error', index };
+        }
+      }
+    })
+    const results = await Promise.all(processUrls);
+
+    // Sort by index to maintain order
+    results.sort((a, b) => a.index - b.index);
+    for (const result of results) {
+      if (result.type === 'error') continue;
   
+      doc.addPage({ size: [612, 792] });
+  
+      if (result.type === 'png') {
+        doc.image(result.data, 0, 0, { 
+          fit: [612, 792],
+          align: 'center', 
+          valign: 'center' 
+        });
+      } else if (result.type === 'uri') {
+        doc.image(result.data, 0, 0, { 
+          fit: [612, 792] 
+        });
       }
   
+      doc.flushPages();
     }
+  
+    // for (let index = 0; index < urls.length; index++) {
+    //   const url = urls[index];
+    //   console.log(url); // Check the URL being processed
+    //   if(url.includes(".svg")){
+    //     console.log('Starting image processing for URL:', url);
+
+    //     const response = await fetch(url);
+    //     console.log('Fetch response status:', response.status);
+
+    //     const data = await response.text();
+    //     console.log('SVG content length:', data.length);
+
+    //     if (!data || !data.includes("<svg")) {
+    //       throw new Error(`Invalid SVG content from ${url}`);
+    //     }
+    //     const scalerFactor = 4;
+    //     // const png = await convert(data);
+    //     console.log('Converting SVG to PNG...');
+
+    //     const png = await sharp(Buffer.from(data)).png().toBuffer();        
+    //     console.log('PNG buffer size:', png.length);
+    //     const metadata = await sharp(png).metadata();
+    //     console.log('PNG dimensions:', metadata.width, 'x', metadata.height);
+    
+    //     doc.addPage({ size: [612, 792] });
+    //     console.log('Adding image to PDF');
+
+      
+      
+    //     const scaleFactor = Math.min(612 / png.width, 792 / png.height); 
+    //     const imgWidth = png.width * scaleFactor;
+    //     const imgHeight = png.height * scaleFactor;
+  
+    //     doc.image(png, 0, 0, { fit: [612, 792],align: 'center', valign: 'center' });
+    //     await new Promise(resolve => setTimeout(resolve, 100));  
+    //     console.log('Flushing pages');
+
+    //     doc.flushPages();  
+
+    //   }else if(url.includes(".png")){
+    //     let img = await getImageDataUri(url);
+    //     doc.addPage({ size: [612, 792] });
+    //     console.log(img)
+    //     doc.image(img, 0, 0, { fit: [612, 792] });
+    //     await new Promise(resolve => setTimeout(resolve, 100)); 
+    //     doc.flushPages();  
+  
+    //   }
+  
+    // }
     console.log('All files processed, ending document');
     doc.on('end', () => {
       console.log('PDF document ended successfully');
