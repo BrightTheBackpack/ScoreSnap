@@ -78,14 +78,26 @@ app.get("/proccess", async (req, res) => {
       const url = urls[index];
       console.log(url); // Check the URL being processed
       if(url.includes(".svg")){
+        console.log('Starting image processing for URL:', url);
+
         const response = await fetch(url);
+        console.log('Fetch response status:', response.status);
+
         const data = await response.text();
+        console.log('SVG content length:', data.length);
+
         if (!data || !data.includes("<svg")) {
           throw new Error(`Invalid SVG content from ${url}`);
         }
         const scalerFactor = 4;
         // const png = await convert(data);
+        console.log('Converting SVG to PNG...');
+
         const png = await sharp(Buffer.from(data)).png().toBuffer();        
+        console.log('PNG buffer size:', png.length);
+        const metadata = await sharp(png).metadata();
+        console.log('PNG dimensions:', metadata.width, 'x', metadata.height);
+    
         doc.addPage({ size: [612, 792] });
     
       
