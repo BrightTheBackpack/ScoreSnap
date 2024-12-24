@@ -66,8 +66,9 @@ app.get("/proccess", async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="merged_pdf.pdf"');
   
-    const doc = new PDFDocument();
-    console.log('PDF document initialized');
+    const doc = new PDFDocument({
+      autoFirstPage: false // Prevent automatic first page creation
+    });    
 
     let urls = decodeURIComponent( req.query.urls).split(",");
     if (!urls || urls.length === 0) {
@@ -75,6 +76,8 @@ app.get("/proccess", async (req, res) => {
     }
     let index = 0;
     doc.pipe(res);
+    let verification = Array.from({length: urls.length-1}, (_,i) => i+1);
+    console.log(urls)
     const processUrls = urls.map(async(url, index)=>{
       if(url.includes(".svg")){
         try {
@@ -87,8 +90,9 @@ app.get("/proccess", async (req, res) => {
           }
   
           // Optimize the conversion with reduced quality and size
-          const png = await sharp(Buffer.from(data)).png().toBuffer();    // Reduce quality for smaller file size.toBuffer();
-  
+          const png = await sharp(Buffer.from(data)).resize({ width: 1224, height: 1584 }).png().toBuffer();   
+          console.log(`Processing PNG ${index}`);
+          verification = verification.filter(item => item !== (index+1));
           return { type: 'png', data: png, index };
         } catch (error) {
           console.error(`Error processing SVG ${index + 1}:`, error);
@@ -98,21 +102,30 @@ app.get("/proccess", async (req, res) => {
       }else if(url.includes(".png")){
         try {
           const img = await getImageDataUri(url);
+          console.log(`Processing PNG ${index}`);
+          verification = verification.filter(item => item !== (index+1));
+
           return { type: 'uri', data: img, index };
         } catch (error) {
           console.error(`Error processing PNG ${index + 1}:`, error);
           return { type: 'error', index };
         }
       }
+      return { type: 'error', index };
     })
     const results = await Promise.all(processUrls);
-
+    console.log(verification)
+   
     // Sort by index to maintain order
     results.sort((a, b) => a.index - b.index);
     for (const result of results) {
-      if (result.type === 'error') continue;
-  
-  
+      if(result.type === 'error'){
+        console.log('error')
+        continue;
+      }
+      // doc.addPage({ size: [612, 792] });
+      doc.addPage({ size: [612, 792] });
+
       if (result.type === 'png') {
         doc.image(result.data, 0, 0, { 
           fit: [612, 792],
@@ -124,12 +137,11 @@ app.get("/proccess", async (req, res) => {
           fit: [612, 792] 
         });
       }
-      // doc.addPage({ size: [612, 792] });
 
-  
+      
       doc.flushPages();
     }
-  
+    
     console.log('All files processed, ending document');
     doc.on('end', () => {
       console.log('PDF document ended successfully');

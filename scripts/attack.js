@@ -11,9 +11,18 @@ console.log("Content script loaded.");
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if(message.type === 'pdf'){
-        await grabber(sendResponse);
-
-    }
+        grabber()
+        .then(() => {
+            console.log("Grabber finished successfully");
+            sendResponse({status: 'done'});
+        })
+        .catch((error) => {
+            console.error("Grabber failed:", error);
+            sendResponse({status: 'error', error: error.message});
+        });
+    
+    // Return true to indicate we'll send a response asynchronously
+    return true;    }
     if(message.type === 'midi'){
         midi();
         sendResponse({status: 'done'});
@@ -23,6 +32,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         audio();
         sendResponse({status: 'done'});
     }
+    return true;
 });
 
 function delay(ms) {
@@ -66,96 +76,117 @@ function audio(){
     }
 
 }
-async function grabber(sendResponse){
+async function grabber(){
     console.log("grabbing")
+    let maxAttemps = 10;
     const stepComponent = document.getElementById('step-4');
-
-    allLinks = [];
-    classname = "";
+    let pagenum = 0;
+    let allLinks = [];
+    let classname = "";
         let scrollerComponent = document.getElementById('jmuse-scroller-component');
+        const images = scrollerComponent.querySelectorAll('img');
+        pagenum = images[0].alt.slice(-10).replace(/^\D+|\D+$/g, "")
         // canvas.width = 1000; // Adjust as needed
         // canvas.height = 2000; 
         let index = 0;
-        const scroll = setInterval(async () => {
-            console.log("scrolling")
-            scrollerComponent.scrollBy(0, 1000);
-            scrollerComponent = document.getElementById('jmuse-scroller-component');
-            const images = scrollerComponent.querySelectorAll('img');
-            if(allLinks.length == 0){
-                classname = images[0].className;
-            }
-            for(img of images){
-                if(allLinks.includes(img.src)){
-                    console.log("already grabbed image")}
-                else{
-                    try{
-                        if(img.className == classname){
-                            allLinks.push(img.src);
-                            console.log("grabbing image")
-
-
-                        }else{
-                            console.log("image not part of score")
-                        }
-                      
-
-                    }catch(e){
-                        console.error(e)
-                    }
+        return new Promise((resolve, reject) => {
+            const scroll = setInterval(async () => {
+                console.log("scrolling")
+                scrollerComponent.scrollBy(0, 1000);
+                scrollerComponent = document.getElementById('jmuse-scroller-component');
+                const images = scrollerComponent.querySelectorAll('img');
+                if(allLinks.length == 0){
+                    classname = images[0].className;
                 }
-
-
-
-            }
-  
-            if (scrollerComponent.scrollHeight - scrollerComponent.scrollTop <= scrollerComponent.clientHeight + 100            ) {
-                // Stop scrolling when the bottom is reached
-                clearInterval(scroll);
-                const apiUrl = 'https://score-snap.vercel.app/proccess'; // Replace with your server's URL and port
-             
-
-                const urlParams = new URLSearchParams({ urls: allLinks.join(',') });
-                const finalUrl = `${apiUrl}?${urlParams.toString()}`;
-
-                fetch(finalUrl)
-                .then(response => {
-                    if (!response.ok) {
-                        console.log(response)
-                    throw new Error('Network response was not ok'); 
+                for(img of images){
+                    if(allLinks.includes(img.src)){
+                        console.log("already grabbed image")}
+                    else{
+                        try{
+                            if(img.className == classname){
+    
+                                if(img.src != ""){
+                                    // console.log(img.src)
+                                    allLinks.push(img.src);
+                                    // console.log("grabbing image")
+        
+                                };
+    
+    
+                            }else{
+                                console.log("image not part of score")
+                            }
+                          
+    
+                        }catch(e){
+                            console.error(e)
+                            
+                        }
                     }
-                    return response.blob(); // Get the PDF as a Blob
-                })
-                .then(pdfBlob => {
-                    let div = document.getElementById('aside-container-unique');
-                    console.log(div)
-                    let text = div.querySelector('h1')
-                    console.log(text)
-                     text = text.querySelector('span').innerText
-                    const url = window.URL.createObjectURL(pdfBlob); // Create a temporary URL 
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = text+'.pdf'; // Set a filename for download
-                    document.body.appendChild(link); // Add the link to the DOM
-                    link.click(); // Trigger the download
-                    sendResponse({status: 'done'});
-                })
-                .catch(error => {
-                    console.error('Error fetching PDF:', error);
-                });
     
-
+    
+    
+                }
+    
       
-            }
-        }, 1000);
+                if (scrollerComponent.scrollHeight - scrollerComponent.scrollTop <= scrollerComponent.clientHeight + 100 &&(allLinks.length==pagenum)    ) {
+                    // Stop scrolling when the bottom is reached
+                    console.log(allLinks)
+                    console.log(allLinks.length)
+                    if(allLinks.length != pagenum){
+                        return "Error: Try increasing delay in the settings(top right)"
+                    }
+                    clearInterval(scroll);
+                    const apiUrl = 'https://score-snap.vercel.app/proccess'; // Replace with your server's URL and port
+                 
+    
+                    const urlParams = new URLSearchParams({ urls: allLinks.join(',') });
+                    const finalUrl = `${apiUrl}?${urlParams.toString()}`;
+    
+                    fetch(finalUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            console.log(response)
+                        throw new Error('Network response was not ok'); 
+                        }
+                        return response.blob(); // Get the PDF as a Blob
+                    })
+                    .then(pdfBlob => {
+                        let div = document.getElementById('aside-container-unique');
+                        console.log(div)
+                        let text = div.querySelector('h1')
+                        console.log(text)
+                         text = text.querySelector('span').innerText
+                        const url = window.URL.createObjectURL(pdfBlob); // Create a temporary URL 
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = text+'.pdf'; // Set a filename for download
+                        document.body.appendChild(link); // Add the link to the DOM
+                        resolve(finalUrl);
 
-        console.log(scrollerComponent.innerHTML)
-
+                        link.click(); // Trigger the download
+                    })
+                    .catch(error => {
+                        console.error('Error fetching PDF:', error);
+                        reject(error);
+                    });
+                    return "response"
+    
+        
+    
+          
+                }
+            }, 500);
+    
+            console.log(scrollerComponent.innerHTML)
     
 
-    if (stepComponent) {
-        stepComponent.innerHTML = 'Hello World!';
-    }
+        })
 
+        
+    
+
+    
 }
 window.addEventListener('load', () => {
     // grabber()

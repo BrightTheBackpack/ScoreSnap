@@ -20,16 +20,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById("button").addEventListener("click", async () => {
         // if (!grabbing) grab();
         console.log('clicked');
-        document.getElementById("button").setAttribute("disabled", "true");
-        document.getElementById("button").style.backgroundColor = "gray";
 
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
         chrome.tabs.sendMessage(tab.id, {type: 'pdf'}, function(response) {
-            if(response && response.status === 'done'){
-                document.getElementById("button").setAttribute("disabled", "false");
-                document.getElementById("button").style.backgroundColor = "green";
-    
-            }
+            console.log('response received')
+            console.log(response);
+         
             });
     });
     document.getElementById("midi").addEventListener("click", async () => {
