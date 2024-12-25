@@ -79,8 +79,8 @@ app.get("/proccess", async (req, res) => {
     let verification = Array.from({length: urls.length-2}, (_,i) => i+1);
     console.log(urls)
     let quality = urls[urls.length-1]
-    let width = quality.split(" ") [0]
-    let height = quality.split(" ") [1]
+    let width = Number(quality.split(" ") [0])
+    let height = Number(quality.split(" ") [1])
     urls.pop()
     const processUrls = urls.map(async(url, index)=>{
       

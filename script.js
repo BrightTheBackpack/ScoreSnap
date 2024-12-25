@@ -18,7 +18,7 @@ async function grab() {
 }
 document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById("button").addEventListener("click", async () => {
-        const quality = document.getElementById("pdf-quality").value;
+        const quality = document.getElementById("pdfQuality").value;
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
 
         const response = await new Promise((resolve) => {
