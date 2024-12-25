@@ -76,9 +76,14 @@ app.get("/proccess", async (req, res) => {
     }
     let index = 0;
     doc.pipe(res);
-    let verification = Array.from({length: urls.length-1}, (_,i) => i+1);
+    let verification = Array.from({length: urls.length-2}, (_,i) => i+1);
     console.log(urls)
+    let quality = urls[urls.length-1]
+    let width = quality.split(" ") [0]
+    let height = quality.split(" ") [1]
+    urls.pop()
     const processUrls = urls.map(async(url, index)=>{
+      
       if(url.includes(".svg")){
         try {
           console.log(`Starting conversion ${index + 1}`);
@@ -90,7 +95,7 @@ app.get("/proccess", async (req, res) => {
           }
   
           // Optimize the conversion with reduced quality and size
-          const png = await sharp(Buffer.from(data)).resize({ width: 1224, height: 1584 }).png().toBuffer();   
+          const png = await sharp(Buffer.from(data)).resize({ width: width, height: height }).png().toBuffer();   
           console.log(`Processing PNG ${index}`);
           verification = verification.filter(item => item !== (index+1));
           return { type: 'png', data: png, index };

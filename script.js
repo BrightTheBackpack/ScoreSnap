@@ -18,23 +18,31 @@ async function grab() {
 }
 document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById("button").addEventListener("click", async () => {
-        // if (!grabbing) grab();
-        console.log('clicked');
-
+        const quality = document.getElementById("pdf-quality").value;
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        chrome.tabs.sendMessage(tab.id, {type: 'pdf'}, function(response) {
-            console.log('response received')
-            console.log(response);
-         
+
+        const response = await new Promise((resolve) => {
+            chrome.tabs.sendMessage(tab.id, {type: 'pdf',quality: quality}, (response) => {
+                console.log('4. Got response:', response);
+                resolve(response.data);
             });
+        });
+        const response2 = await new Promise((resolve) => {
+            chrome.tabs.sendMessage(tab.id, {type: 'pdf2', data: response}, (response) => {
+                console.log('4. Got response:', response);
+                resolve(response);
+            });
+        });
+        
     });
     document.getElementById("midi").addEventListener("click", async () => {
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
         // chrome.tabs.sendMessage(tab.id, {type: 'midi'}, function(response) {
         //     // console.log(response.status);
         // });
-        document.getElementById("button").setAttribute("disabled", "true");
-        document.getElementById("button").style.backgroundColor = "gray";
+        console.log("clicked");
+        document.getElementById("midi").setAttribute("disabled", "true");
+        document.getElementById("midi").style.backgroundColor = "gray";
 
         console.log(auth, "auth", midi_url, "midi_url");
         if(midi_url == null || auth == null){
@@ -45,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             'Authorization': auth
                         }
                     }).then(response => response.json()).then(json => {
+
                         const url = json.info.url;
                         console.log("url", url);
                         const link = document.createElement('a');
@@ -53,8 +62,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                        document.getElementById("midi").setAttribute("disabled", "false");
-                        document.getElementById("midi").style.backgroundColor = "green";
+                        document.getElementById("midi").removeAttribute("disabled");
+                        document.getElementById("midi").style.backgroundColor = "4CAF50";
+
         
                     });   
                 }, 200);
@@ -74,8 +84,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                document.getElementById("midi").setAttribute("disabled", "false");
-                document.getElementById("midi").style.backgroundColor = "green";
+                document.getElementById("midi").removeAttribute("disabled");
+                document.getElementById("midi").style.backgroundColor = "4CAF50";
 
             });
         }
