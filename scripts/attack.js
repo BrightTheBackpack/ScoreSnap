@@ -7,6 +7,7 @@
 // const  SVGtoPDF = window.svgtopdfkit && window.svgtopdfkit.SVGtoPDF;
 
 console.log("Content script loaded.");
+const apiUrl = 'http://localhost:3000'; // Replace with your server's URL and port
 
 
 chrome.runtime.onMessage.addListener(  (message, sender, sendResponse) => {
@@ -52,30 +53,69 @@ function midi(){
 
 
 }
-function audio(){
+async function audio(){
     let audio = document.getElementsByTagName("audio")
+    let div = document.getElementById('aside-container-unique');
+    console.log(div)
+    let text = div.querySelector('h1')
+    console.log(text)
+     text = text.querySelector('span').innerText
+
     if(audio.length == 0){
         let playbutton = document.getElementById("scorePlayButton")
         playbutton.click()
         // setTimeout(()=>{playbutton.click()},1000)
-        setTimeout(()=>{
+        setTimeout(async ()=>{
             audio = document.getElementsByTagName("audio")
             let url = audio[0].src
-            const link = document.createElement('a');
-            link.href = url
-            link.download = 'audio.mp3'
-            document.body.appendChild(link); 
-            link.click()
+            if(!url.includes("custom")){
+                const link = document.createElement('a');
+                link.href = url
+                link.download = text+'.mp3';
+                document.body.appendChild(link); 
+                link.click()        
+            }else{
+                try{
+                    let fetchurl = apiUrl + "/audio?url=" + encodeURIComponent(url)
+                    fetch(fetchurl).then((response) => response.blob()).then((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = text+'.mp3';
+                        document.body.appendChild(link);
+                        link.click();
+                    })
+                }catch(e){
+                    console.error(e)
+                }
+            }
         },100)
   
     }else{
         console.log(audio)
         let url = audio[0].src
-        const link = document.createElement('a');
-        link.href = url
-        link.download = 'audio.mp3'
-        document.body.appendChild(link); 
-        link.click()
+        if(!url.includes("custom")){
+            const link = document.createElement('a');
+            link.href = url
+            link.download = text+'.mp3';
+            document.body.appendChild(link); 
+            link.click()
+        }else{
+            try{
+                let fetchurl = apiUrl + "?url=" + encodeURIComponent(url)
+                fetch(fetchurl).then((response) => response.blob()).then((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = text+'.mp3';
+                    document.body.appendChild(link);
+                    link.click();
+                })
+            }catch(e){
+                console.error(e)
+            }
+        }
+     
     }
 
 }
@@ -140,12 +180,11 @@ async function grabber(quality){
                         return "Error: Try increasing delay in the settings(top right)"
                     }
                     clearInterval(scroll);
-                    const apiUrl = 'https://score-snap.vercel.app/proccess'; // Replace with your server's URL and port
                     allLinks.push(quality)
     
                     const urlParams = new URLSearchParams({ urls: allLinks.join(',') });
-                    const finalUrl = `${apiUrl}?${urlParams.toString()}`;
-    
+                    const finalUrl = `${apiUrl}/proccess?${urlParams.toString()}`;
+                    
                     resolve(finalUrl)
     
         

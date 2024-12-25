@@ -5,6 +5,8 @@ const { convert } = require('convert-svg-to-png');
 import request from "request";
 const PDFDocument  = require("pdfkit");
 import sharp from 'sharp';
+const { Readable } = require("stream"); // Node.js stream module
+
 
 const XHR = require("xmlhttprequest").XMLHttpRequest;
 const targetUrl = "https://s3.ultimate-guitar.com/musescore.scoredata/g/c0251f563b2bcfa165121936c9e4ffeec0325429/score_4.svg?response-content-disposition=attachment%3B%20filename%3D%22score_4.svg%22&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=4SHNMJS3MTR9XKK7ULEP%2F20241110%2Fus-west%2Fs3%2Faws4_request&X-Amz-Date=20241110T062817Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Signature=ee974ae54e5469d86ca46ccf46b58729b192d2a56f3697395a5c3399afa3f315";
@@ -60,6 +62,21 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE'); // Allow all methods
   res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type'); 
   next(); // Continue to the next middleware or route handler
+});
+app.get("/audio", async (req, res) => {
+  console.log('audio')
+  res.setHeader('Content-Type', 'audio/mpeg');
+  res.setHeader('Content-Disposition', 'attachment; filename="audio.mp3"');
+  let url = req.query.url;
+  url = decodeURIComponent(url);
+  const response = await fetch(url);
+  const nodeStream = Readable.from(response.body);
+  nodeStream.pipe(res).on("error", (err) => {
+    console.error("Error while streaming audio:", err);
+    res.status(500).send("Error streaming audio");
+  });
+
+
 });
 app.get("/proccess", async (req, res) => {
 

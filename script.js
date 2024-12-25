@@ -18,18 +18,27 @@ async function grab() {
 }
 document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById("button").addEventListener("click", async () => {
+        document.getElementById("button").setAttribute("disabled", "true");
+        document.getElementById("button").style.backgroundColor = "gray";
+        document.getElementById("msg").innerText = "Scanning Pages..."
         const quality = document.getElementById("pdfQuality").value;
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
 
         const response = await new Promise((resolve) => {
             chrome.tabs.sendMessage(tab.id, {type: 'pdf',quality: quality}, (response) => {
                 console.log('4. Got response:', response);
+                document.getElementById("msg").innerText = "Processing PDF..."
+
                 resolve(response.data);
             });
         });
         const response2 = await new Promise((resolve) => {
             chrome.tabs.sendMessage(tab.id, {type: 'pdf2', data: response}, (response) => {
                 console.log('4. Got response:', response);
+                document.getElementById("midi").removeAttribute("disabled");
+                document.getElementById("midi").style.backgroundColor = "4CAF50";
+                document.getElementById("msg").innerText = "Done"
+
                 resolve(response);
             });
         });
