@@ -17,6 +17,13 @@ async function grab() {
     }
 }
 document.addEventListener('DOMContentLoaded', async () => {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    const regexMatch = /musescore\.com\/user\/[^/]+\/scores\/[^/]+/;
+
+    if (!regexMatch.test(tab.url)) {
+        document.getElementById("msg").innerText = "Please go to a musescore.com score page to use this extension";
+        return;
+    }
     document.getElementById("button").addEventListener("click", async () => {
         document.getElementById("button").setAttribute("disabled", "true");
         document.getElementById("button").style.backgroundColor = "gray";
@@ -27,7 +34,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response = await new Promise((resolve) => {
             chrome.tabs.sendMessage(tab.id, {type: 'pdf',quality: quality}, (response) => {
                 console.log('4. Got response:', response);
-                document.getElementById("msg").innerText = "Processing PDF..."
+                if(response.type == "batch"){
+                    document.getElementById("msg").innerText = "Batching... this may take longer than normal"
+                }else{
+                    document.getElementById("msg").innerText = "Processing PDF..."
+                }
 
                 resolve(response.data);
             });
@@ -35,9 +46,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response2 = await new Promise((resolve) => {
             chrome.tabs.sendMessage(tab.id, {type: 'pdf2', data: response}, (response) => {
                 console.log('4. Got response:', response);
-                document.getElementById("midi").removeAttribute("disabled");
-                document.getElementById("midi").style.backgroundColor = "4CAF50";
-                document.getElementById("msg").innerText = "Done"
+                if(response.status == 'done'){
+                    document.getElementById("button").removeAttribute("disabled");
+                    document.getElementById("button").style.backgroundColor = "4CAF50";
+                    document.getElementById("msg").innerText = "Done!"
+                }
+                if(response.status == 'error'){
+                    document.getElementById("msg").innerText = response.data
+                    document.getElementById("button").removeAttribute("disabled");
+                    document.getElementById("button").style.backgroundColor = "4CAF50";
+
+                }
 
                 resolve(response);
             });
@@ -104,8 +123,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     })
     document.getElementById("audio").addEventListener("click", async () => {
+        document.getElementById("audio").setAttribute("disabled", "true");
+        document.getElementById("audio").style.backgroundColor = "gray";
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        chrome.tabs.sendMessage(tab.id, {type: 'audio'}); 
+        const response = await new Promise((resolve) => {
+            chrome.tabs.sendMessage(tab.id, {type: 'audio'}, (response) => {
+                console.log('4. Got response:', response);
+                if(response.status == 'done'){
+                    document.getElementById("audio").removeAttribute("disabled");
+                    document.getElementById("audio").style.backgroundColor = "4CAF50";
+                }
+                if(response.status == 'custom'){
+                    console.log('proccess')
+                    document.getElementById("msg").innerText = "This audio needs to be processed, please wait..."
+                    const response2 = new Promise((resolve) => {
+                        chrome.tabs.sendMessage(tab.id, {type: 'audio2', data: response.data}, (response) => {
+                            console.log('4. Got response:', response);
+                            document.getElementById("audio").removeAttribute("disabled");
+                            document.getElementById("audio").style.backgroundColor = "4CAF50";
+                            document.getElementById("msg").innerText = "Done!"
+                            resolve(response);
+                        });
+                    });
+                }
+                resolve(response.data);
+            });
+        });
     });
 })
 

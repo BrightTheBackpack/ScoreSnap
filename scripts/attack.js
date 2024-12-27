@@ -9,14 +9,24 @@
 console.log("Content script loaded.");
 const apiUrl = 'http://localhost:3000'; // Replace with your server's URL and port
 
-
+batchUrls = []
+batchBlobs = []
 chrome.runtime.onMessage.addListener(  (message, sender, sendResponse) => {
     if(message.type === 'pdf'){
         sendAResponse(sendResponse, message.quality)
         return true;  // Keep messaging channel open
  }
  if(message.type === "pdf2"){
-    sendAResponse2(sendResponse, message.data)
+    if(message.data.type == 'smash'){
+        sendAResponse2(sendResponse, message.data.data)
+        return true;
+    }
+    if(message.data.type == 'batch'){  
+        console.log(message.data)
+        console.log(message.data.key)
+
+        batchMessage(message.data.key, sendResponse)
+    }
     return true;
  }
     if(message.type === 'midi'){
@@ -25,18 +35,35 @@ chrome.runtime.onMessage.addListener(  (message, sender, sendResponse) => {
 
     }
     if(message.type === 'audio'){
-        audio();
-        sendResponse({status: 'done'});
+        sendAResponseAudio(sendResponse)
+    }
+    if(message.type === 'audio2'){
+        sendAResponseAudio2(sendResponse, message.data)
+        return true;
     }
     return true;
 });
-
+async function batchMessage(data, sendResponse){
+    const response = await(batchFinalize(data))
+    sendResponse({status: 'done', data: response});
+}
 async function sendAResponse(sendResponse, quality){
     const response = await(grabber(quality))
     sendResponse({status: 'done', data: response});
 }
 async function sendAResponse2(sendResponse, data){
     const response = await(fetchURLS(data))
+    if(response.status.includes("error")){
+        sendResponse({status: 'error', data: 'Please reload the page and try again, or check your connection'})
+    }
+    sendResponse({status: 'done'})
+}
+async function sendAResponseAudio(sendResponse){
+    const response = await(audio())
+    sendResponse({status: response[0], data: response[1]})
+}
+async function sendAResponseAudio2(sendResponse, data){
+    const response = await(proccessAudio(data))
     sendResponse({status: 'done'})
 }
 function delay(ms) {
@@ -53,6 +80,130 @@ function midi(){
 
 
 }
+async function batchFinalize(key){
+    console.log(batchUrls)
+    console.log(key)
+    let batch = batchUrls.find(obj => obj.key == key)
+    console.log(batch)
+     while(batch.current < batch.total + 1){//to ensure they all finish prior to batch finalize
+        await delay(1000);
+     }
+     let blobs = batchBlobs.find(obj => obj.key == key)
+     console.log(blobs, 'blobs')
+     let spreadBlobs = Object.values(blobs).filter(Array.isArray).flat();
+        console.log(spreadBlobs, 'spreadBlobs')
+        const urlParams = new URLSearchParams({ urls: spreadBlobs.join(',') });
+        await fetch(`${apiUrl}/pdffrombatch`,{
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({url: spreadBlobs})
+        }).then((response) => response.blob()).then((blob) => {
+            let div = document.getElementById('aside-container-unique');
+            console.log(div)
+            let text = div.querySelector('h1')
+            console.log(text)
+             text = text.querySelector('span').innerText
+            const url = window.URL.createObjectURL(blob); // Create a temporary URL 
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = text+'.pdf'; // Set a filename for download
+            document.body.appendChild(link); // Add the link to the DOM
+            link.click();
+    })
+
+}
+
+function processJsonBlob(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            try {
+                const json = JSON.parse(reader.result); 
+                resolve(json);
+            } catch (error) {
+                reject("Error parsing JSON: " + error.message);
+            }
+        };
+
+        reader.onerror = () => reject("Error reading Blob: " + reader.error);
+
+        reader.readAsText(blob); 
+    });
+}
+
+async function batchProccessing(key){
+    let batch = batchUrls.find(obj => obj.key == key)
+    console.log(batch)
+    let index = 0;
+    while(batch.current < batch.total){
+        console.log('waiting for batches to finish')
+        console.log(batch.current, batch.total)
+        if(batch.current<batch.exists ){//try incrementin batch.current beofre and after the fetch
+            console.log('fetching batch')
+            console.log(batch)
+            let url = batch[batch.current+1]//this is all wrong btw, but we can fix l8tr
+            console.log(url)
+             batch.current += 1;
+
+            // index +=1;
+            await fetch(url).then((response) => response.blob()).then((blob) => {
+                processJsonBlob(blob).then((dataURLs) => {
+                    console.log(dataURLs)
+                    if(batch.current == 1){
+                        console.log('finish proccessing first bach')
+                        console.log(blob, "blob")
+                        batchBlobs.push({key: key, total: batch.total, current: 0, [batch.current-1]: dataURLs})
+                    }else{
+                        console.log('proccessing batch')
+                        let edit = batchBlobs.find(obj => obj.key == key)
+                        edit[batch.current -1 ] = dataURLs;
+                    }
+                   // batch.current += 1;
+
+                });
+             
+
+            })
+        }else{
+            await delay(300)
+        }
+
+
+    }
+    batch.current += 1;
+}
+async function proccessAudio(url){
+    let div = document.getElementById('aside-container-unique');
+    console.log(div)
+    let text = div.querySelector('h1')
+    console.log(text)
+     text = text.querySelector('span').innerText
+
+    console.log('fetching')
+    return new Promise((resolve, reject) => {
+        try{
+            let fetchurl = apiUrl + "/audio?url=" + encodeURIComponent(url)
+            fetch(fetchurl).then((response) => response.blob()).then((blob) => {
+                console.log('fetched')
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = text+'.mp3';
+                document.body.appendChild(link);
+                link.click();
+                resolve("done")
+            })
+        }catch(e){
+            console.error(e)
+            reject(e)
+        }
+    })
+
+ 
+}
 async function audio(){
     let audio = document.getElementsByTagName("audio")
     let div = document.getElementById('aside-container-unique');
@@ -60,63 +211,71 @@ async function audio(){
     let text = div.querySelector('h1')
     console.log(text)
      text = text.querySelector('span').innerText
-
-    if(audio.length == 0){
-        let playbutton = document.getElementById("scorePlayButton")
-        playbutton.click()
-        // setTimeout(()=>{playbutton.click()},1000)
-        setTimeout(async ()=>{
-            audio = document.getElementsByTagName("audio")
+    return new Promise((resolve, reject) => {
+        if(audio.length == 0){
+            let playbutton = document.getElementById("scorePlayButton")
+            playbutton.click()
+            // setTimeout(()=>{playbutton.click()},1000)
+            setTimeout(async ()=>{
+                audio = document.getElementsByTagName("audio")
+                let url = audio[0].src
+                console.log(url, 'is it custom?') 
+                if(!url.includes("data:audio")){
+                    if(!url.includes("custom")){
+                        const link = document.createElement('a');
+                        link.href = url
+                        link.download = text+'.mp3';
+                        document.body.appendChild(link); 
+                        link.click()        
+                    resolve(["done", 'none'])
+                    }else{
+                        resolve(["custom", url])
+                    }
+                }else{
+                    setTimeout(async ()=>{
+                        audio = document.getElementsByTagName("audio")
+                        let url = audio[0].src
+                        console.log(url, 'is it custom?') 
+                        if(!url.includes("data:audio")){
+                            if(!url.includes("custom")){
+                                const link = document.createElement('a');
+                                link.href = url
+                                link.download = text+'.mp3';
+                                document.body.appendChild(link); 
+                                link.click()        
+                            resolve(["done", 'none'])
+                            }else{
+                                resolve(["custom", url])
+                            }
+                        }else{
+                            
+                        }
+                       
+                    },500)
+                }
+               
+            },100)
+      
+        }else{
+            console.log(audio)
             let url = audio[0].src
             if(!url.includes("custom")){
                 const link = document.createElement('a');
                 link.href = url
                 link.download = text+'.mp3';
                 document.body.appendChild(link); 
-                link.click()        
+                link.click()
+                resolve(["done", 'none'])
+    
             }else{
-                try{
-                    let fetchurl = apiUrl + "/audio?url=" + encodeURIComponent(url)
-                    fetch(fetchurl).then((response) => response.blob()).then((blob) => {
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = text+'.mp3';
-                        document.body.appendChild(link);
-                        link.click();
-                    })
-                }catch(e){
-                    console.error(e)
-                }
+                resolve(["custom", url])
+    
             }
-        },100)
-  
-    }else{
-        console.log(audio)
-        let url = audio[0].src
-        if(!url.includes("custom")){
-            const link = document.createElement('a');
-            link.href = url
-            link.download = text+'.mp3';
-            document.body.appendChild(link); 
-            link.click()
-        }else{
-            try{
-                let fetchurl = apiUrl + "?url=" + encodeURIComponent(url)
-                fetch(fetchurl).then((response) => response.blob()).then((blob) => {
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = text+'.mp3';
-                    document.body.appendChild(link);
-                    link.click();
-                })
-            }catch(e){
-                console.error(e)
-            }
+         
         }
-     
-    }
+        
+    });
+ 
 
 }
 async function grabber(quality){
@@ -131,7 +290,21 @@ async function grabber(quality){
         pagenum = images[0].alt.slice(-10).replace(/^\D+|\D+$/g, "")
         // canvas.width = 1000; // Adjust as needed
         // canvas.height = 2000; 
-        let index = 0;
+        let index = 1;
+        let smash = true
+        let key = 0; 
+        let total = Math.ceil(pagenum/10) //roudn up
+        threshold = 10;
+        if(quality.width < 1000){
+            threshold = 15
+        }
+        if(quality.width < 500){
+            threshold = 20
+        }
+        if(pagenum > threshold){
+            smash = false;
+            key = (Math.random() + 1) * 164235 + Math.random() * 643267
+        }
         return new Promise((resolve, reject) => {
             const scroll = setInterval(async () => {
                 console.log("scrolling")
@@ -149,8 +322,29 @@ async function grabber(quality){
                             if(img.className == classname){
     
                                 if(img.src != ""){
+                                    if(img.src.includes('.png')){
+                                        smash = true;
+                                    }
                                     // console.log(img.src)
                                     allLinks.push(img.src);
+                                    if((allLinks.length >((threshold)*index )-1 || allLinks.length==pagenum) && !smash){
+                                        console.log("reached 10 images")
+                                        Tenlinks = allLinks.slice(((threshold-1)*index)-(threshold-1), (threshold-1)*index)
+                                        console.log(allLinks)
+                                        Tenlinks.push(quality)
+                                        const urlParams = new URLSearchParams({ urls: Tenlinks.join(',') });
+                                        const batchedURL = `${apiUrl}/batch?${urlParams.toString()}`;    
+                                        if(index==1){
+                                            batchUrls.push({key: key,total:total, current: 0, exists: 1, [index]: batchedURL})
+                                            batchProccessing(key)
+                                        }else{
+                                            let edit = batchUrls.find(obj => obj.key == key)
+                                            edit[index] = batchedURL;
+                                            edit.exists += 1;
+                                        }
+                                        index += 1;
+
+                                    }
                                     // console.log("grabbing image")
         
                                 };
@@ -166,9 +360,6 @@ async function grabber(quality){
                             
                         }
                     }
-    
-    
-    
                 }
     
       
@@ -181,20 +372,17 @@ async function grabber(quality){
                     }
                     clearInterval(scroll);
                     allLinks.push(quality)
-    
                     const urlParams = new URLSearchParams({ urls: allLinks.join(',') });
-                    const finalUrl = `${apiUrl}/proccess?${urlParams.toString()}`;
-                    
-                    resolve(finalUrl)
-    
-        
-    
-          
-                }
+                    const finalUrl = `${apiUrl}/proccess?${urlParams.toString()}`;    
+                    if(smash){
+                        resolve({data: finalUrl, type: 'smash'})
+
+                    }else{
+                        resolve({type: 'batch', key: key})    
+                    }
+              }
             }, 500);
-    
             console.log(scrollerComponent.innerHTML)
-    
 
         })
 
@@ -211,6 +399,8 @@ async function fetchURLS(finalUrl){
         if (!response.ok) {
             console.log(response)
         throw new Error('Network response was not ok'); 
+        resolve({status: 'error', error: error});
+
         }
         return response.blob(); // Get the PDF as a Blob
     })
@@ -225,13 +415,13 @@ async function fetchURLS(finalUrl){
         link.href = url;
         link.download = text+'.pdf'; // Set a filename for download
         document.body.appendChild(link); // Add the link to the DOM
-        resolve(finalUrl);
+        resolve({status: 'done' , result: finalUrl});
 
         link.click(); // Trigger the download
     })
     .catch(error => {
         console.error('Error fetching PDF:', error);
-        reject(error);
+        resolve({status: 'error', error: error});
     });
 
     })

@@ -41,6 +41,8 @@ app.use(
       origin: "*",
     })
 );
+app.use(express.json({ limit: '50mb' }));  // Increase the body size limit to 50mb
+
 app.get("/", (req, res) => {
   let url = req.query.url;
   console.log(url)
@@ -69,15 +71,94 @@ app.get("/audio", async (req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="audio.mp3"');
   let url = req.query.url;
   url = decodeURIComponent(url);
+
   const response = await fetch(url);
   const nodeStream = Readable.from(response.body);
   nodeStream.pipe(res).on("error", (err) => {
     console.error("Error while streaming audio:", err);
     res.status(500).send("Error streaming audio");
+  }).on("finish", () => {
+    console.log('donies')
   });
+
+  console.log('audio done')
 
 
 });
+app.post("/pdffrombatch", express.json(), async (req, res) => {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename="merged_pdf.pdf"');
+
+
+  console.log('batching')
+  let urls = req.body.url
+
+  if(Array.isArray(urls)){
+    console.log('urls is an array')
+  }else{
+    console.log('urls is an', typeof urls)
+  }
+  const doc = new PDFDocument({
+    autoFirstPage: false // Prevent automatic first page creation
+  });    
+  doc.pipe(res)
+  for (const url of urls) {
+    console.log(url)
+    // doc.addPage({ size: [612, 792] });
+    doc.addPage({ size: [612, 792] });
+
+      doc.image(url, 0, 0, { 
+        fit: [612, 792],
+        align: 'center', 
+        valign: 'center' 
+      });
+    
+
+    
+    doc.flushPages();
+  }
+  doc.addListener('end', () => {
+    console.log('PDF document ended successfully');
+  });
+  doc.end();
+
+
+});
+app.get("/batch", async (req, res) => {
+  console.log('batch')
+  let urls = decodeURIComponent( req.query.urls).split(",");
+  let quality = urls[urls.length-1]
+  urls.pop()
+  console.log(quality)
+  let width = Number(quality.split("+") [0])
+  let height = Number(quality.split("+") [1])
+  // console.log(urls)
+  const processUrls = urls.map(async(url, index)=>{
+    try{
+      console.log(`Starting conversion ${index + 1}`);
+      const response = await fetch(url);
+      const data = await response.text();
+      if (!data || !data.includes("<svg")) {
+        throw new Error(`Invalid SVG content from ${url}`);
+      }
+      let png = await sharp(Buffer.from(data)).resize({ width: width, height: height }).png().toBuffer();
+      const base64String = png.toString('base64');
+
+     png = `data:image/png;base64,${base64String}`;
+
+      console.log(`Finished PNG ${index}`);
+      return png;
+      
+
+    }catch(e){
+      console.log(e)
+    }
+  })
+  const results = await Promise.all(processUrls);
+  console.log('done')
+  res.send(results)
+
+})
 app.get("/proccess", async (req, res) => {
 
     res.setHeader('Content-Type', 'application/pdf');
