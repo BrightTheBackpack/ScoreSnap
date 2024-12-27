@@ -130,8 +130,8 @@ app.get("/batch", async (req, res) => {
   let quality = urls[urls.length-1]
   urls.pop()
   console.log(quality)
-  let width = Number(quality.split("+") [0])
-  let height = Number(quality.split("+") [1])
+  let width = Number(quality.split(" ") [0])
+  let height = Number(quality.split(" ") [1])
   // console.log(urls)
   const processUrls = urls.map(async(url, index)=>{
     try{
