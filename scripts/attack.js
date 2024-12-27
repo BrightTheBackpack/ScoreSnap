@@ -151,17 +151,18 @@ async function batchProccessing(key){
             // index +=1;
             await fetch(url).then((response) => response.blob()).then((blob) => {
                 processJsonBlob(blob).then((dataURLs) => {
-                    console.log(dataURLs)
-                    if(batch.current == 1){
+                    // console.log(dataURLs)
+                    if(index == 0){
                         console.log('finish proccessing first bach')
                         console.log(blob, "blob")
-                        batchBlobs.push({key: key, total: batch.total, current: 0, [batch.current-1]: dataURLs})
+                        batchBlobs.push({key: key, total: batch.total, current: 0, [index]: dataURLs})
                     }else{
                         console.log('proccessing batch')
                         let edit = batchBlobs.find(obj => obj.key == key)
-                        edit[batch.current -1 ] = dataURLs;
+                        console.log(edit)
+                        edit[index] = dataURLs;
                     }
-                   // batch.current += 1;
+                   index++
 
                 });
              

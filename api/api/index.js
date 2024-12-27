@@ -103,7 +103,7 @@ app.post("/pdffrombatch", express.json(), async (req, res) => {
   });    
   doc.pipe(res)
   for (const url of urls) {
-    console.log(url)
+    // console.log(url)
     // doc.addPage({ size: [612, 792] });
     doc.addPage({ size: [612, 792] });
 
