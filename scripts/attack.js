@@ -7,7 +7,7 @@
 // const  SVGtoPDF = window.svgtopdfkit && window.svgtopdfkit.SVGtoPDF;
 
 console.log("Content script loaded.");
-const apiUrl = 'http://localhost:3000'; // Replace with your server's URL and port
+const apiUrl = 'https://score-snap.vercel.app'; // Replace with your server's URL and port
 
 batchUrls = []
 batchBlobs = []
