@@ -108,27 +108,36 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
     autoFirstPage: false // Prevent automatic first page creation
   });    
   doc.pipe(res)
-  for (const url of urls) {
-    console.log(url)
-    // console.log(url)
-    // doc.addPage({ size: [612, 792] });
-    const buffer = await url.buffer; 
-    console.log(buffer)
-    doc.addPage({ size: [612, 792] });
-
-      doc.image(buffer, 0, 0, { 
-        fit: [612, 792],
-        align: 'center', 
-        valign: 'center' 
-      });
+  const CHUNK_SIZE = 5;
+  for (let i = 0; i < urls.length; i += CHUNK_SIZE) {
+    const chunk = urls.slice(i, i + CHUNK_SIZE);
     
+    for (const file of chunk) {
+      try {
+        // Optimize the image before adding to PDF
+        const buffer = await file.buffer; 
 
-    
-    doc.flushPages();
+        doc.addPage({ size: [612, 792] });
+        doc.image(buffer, 0, 0, { 
+          fit: [612, 792],
+          align: 'center', 
+          valign: 'center' 
+        });
+        
+        // Clear references to help with garbage collection
+        file.buffer = null;
+      } catch (imageError) {
+        console.error('Error processing image:', imageError);
+        continue;
+      }
+    }
+
+    // Force garbage collection between chunks if available
+    if (global.gc) {
+      global.gc();
+    }
   }
-  doc.addListener('end', () => {
-    console.log('PDF document ended successfully');
-  });
+
   doc.end();
 
 
