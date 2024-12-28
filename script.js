@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         
                     });   
-                }, 200);
+                }, 300);
                   });
         }else{
     
@@ -164,4 +164,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     { urls: ["https://*.musescore.com/*"] },
     ["requestHeaders"]
   );
-  
+  browser.webRequest.onBeforeSendHeaders.addListener(
+    function (details) {
+      if(details.url.includes("midi")) {
+        midi_url = details.url;
+        auth = details.requestHeaders.find(h => h.name === 'Authorization')?.value;
+        console.log(auth);
+      }
+    },
+    { urls: ["https://*.musescore.com/*"] },
+    ["requestHeaders"]
+  );

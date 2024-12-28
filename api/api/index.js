@@ -45,7 +45,7 @@ app.use(
       origin: "*",
     })
 );
-// app.use(express.json({ limit: '500mb' }));  // Increase the body size limit to 50mb
+app.use(express.json({ limit: '500mb' }));  // Increase the body size limit to 50mb
 // app.use(upload.array('images')); // Handle multiple file uploads
 
 app.get("/", (req, res) => {
