@@ -1,12 +1,11 @@
 const express = require("express");
 const cors = require("cors")
-const SVGtoPDF = require("svg-to-pdfkit");
-const { convert } = require('convert-svg-to-png');
 import request from "request";
 const PDFDocument  = require("pdfkit");
 import sharp from 'sharp';
 const { Readable } = require("stream"); // Node.js stream module
-var bodyParser = require('body-parser')
+const PDFMerge = require('pdf-merge');
+const { PDFDocument: PDFLibDocument } = require('pdf-lib');
 
 
 const multer = require('multer');
@@ -97,33 +96,45 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
 
   console.log('batching')
   const urls = req.files; 
-  
+  console.log(urls)
 
   if(Array.isArray(urls)){
     console.log('urls is an array')
   }else{
     console.log('urls is an', typeof urls)
   }
-  const doc = new PDFDocument({
-    autoFirstPage: false // Prevent automatic first page creation
-  });    
-  doc.pipe(res)
+  const mergedPdf = await PDFLibDocument.create();
+
   const CHUNK_SIZE = 5;
   for (let i = 0; i < urls.length; i += CHUNK_SIZE) {
     const chunk = urls.slice(i, i + CHUNK_SIZE);
     
     for (const file of chunk) {
       try {
-        // Optimize the image before adding to PDF
-        const buffer = await file.buffer; 
+        console.log('processing image')
+        // // Optimize the image before adding to PDF
+        // const buffer = await file.buffer; 
 
-        doc.addPage({ size: [612, 792] });
-        doc.image(buffer, 0, 0, { 
-          fit: [612, 792],
-          align: 'center', 
-          valign: 'center' 
+        // doc.addPage({ size: [612, 792] });
+        // doc.image(buffer, 0, 0, { 
+        //   fit: [612, 792],
+        //   align: 'center', 
+        //   valign: 'center' 
+        // });
+        console.log(file['buffer'])
+        const bytes = Buffer.from(file['buffer'], 'base64');
+        console.log(bytes)
+        if (bytes.slice(0, 4).toString() !== '%PDF') {
+          console.error('Invalid PDF file');
+          continue;
+        }
+        const pdf = await PDFLibDocument.load(bytes);
+        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        copiedPages.forEach((page) => {
+          mergedPdf.addPage(page);
         });
         
+        console.log(copiedPages)
         // Clear references to help with garbage collection
         file.buffer = null;
       } catch (imageError) {
@@ -137,9 +148,9 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
       global.gc();
     }
   }
-
-  doc.end();
-
+  let mergedPDFBytes = await mergedPdf.save();
+  console.log(mergedPDFBytes)
+  res.end(mergedPDFBytes); // Directly send binary data to the client
 
 });
 app.get("/batch", async (req, res) => {
@@ -148,9 +159,13 @@ app.get("/batch", async (req, res) => {
   let quality = urls[urls.length-1]
   urls.pop()
   console.log(quality)
-  let width = Number(quality.split(" ") [0])//for some reason vercel likes " " and local likes "+" 
-  let height = Number(quality.split(" ") [1])
+  let width = Number(quality.split("+") [0])//for some reason vercel likes " " and local likes "+" 
+  let height = Number(quality.split("+") [1])
   // console.log(urls)
+  const doc = new PDFDocument({
+    autoFirstPage: false // Prevent automatic first page creation
+  });
+  doc.pipe(res);
   const processUrls = urls.map(async(url, index)=>{
     try{
       console.log(`Starting conversion ${index + 1}`);
@@ -173,8 +188,18 @@ app.get("/batch", async (req, res) => {
     }
   })
   const results = await Promise.all(processUrls);
-  console.log('done')
-  res.send(results)
+  results.sort((a, b) => a.index - b.index);
+  for (const result of results) {
+    doc.addPage({ size: [612, 792] });
+    doc.image(result, 0, 0, { 
+      fit: [612, 792],
+      align: 'center', 
+      valign: 'center' 
+    });
+  }
+  doc.end();
+  // console.log('done')
+  // res.send(results)
 
 })
 app.get("/proccess", async (req, res) => {

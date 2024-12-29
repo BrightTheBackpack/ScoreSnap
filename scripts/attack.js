@@ -7,7 +7,7 @@
 // const  SVGtoPDF = window.svgtopdfkit && window.svgtopdfkit.SVGtoPDF;
 
 console.log("Content script loaded.");
-const apiUrl = 'https://score-snap.vercel.app'; // Replace with your server's URL and port
+const apiUrl = 'http://localhost:3000'; // Replace with your server's URL and port
 
 batchUrls = []
 batchBlobs = []
@@ -93,14 +93,14 @@ async function batchFinalize(key){
 
      let blobs = batchBlobs.find(obj => obj.key == key)
      console.log(blobs, 'blobs')
-     let spreadBlobs = Object.values(blobs).filter(Array.isArray).flat();
+     let spreadBlobs = Object.values(blobs).filter(item => item instanceof Blob).flat();
      const formData = new FormData();
-     // Append image blobs or files here instead of Data URLs
-spreadBlobs.forEach((imageBlob, index) => {
-    // Ensure the blob has the correct type
-    const blob = new Blob([imageBlob], { type: imageBlob.type || 'image/png' });
-    formData.append('images', blob, `image-${index}.png`);
-});
+    //  Append image blobs or files here instead of Data URLs
+        spreadBlobs.forEach((imageBlob, index) => {
+            // Ensure the blob has the correct type
+            const blob = new Blob([imageBlob], { type:  'application/pdf' });
+            formData.append('images', blob, `image-${index}.png`);
+        });
         console.log(spreadBlobs, 'spreadBlobs')
         // const urlParams = new URLSearchParams({ urls: spreadBlobs.join(',') });
         await fetch(`${apiUrl}/pdffrombatch`,{
@@ -113,6 +113,7 @@ spreadBlobs.forEach((imageBlob, index) => {
             let text = div.querySelector('h1')
             console.log(text)
              text = text.querySelector('span').innerText
+             console.log(blob)
             const url = window.URL.createObjectURL(blob); // Create a temporary URL 
             const link = document.createElement('a');
             link.href = url;
@@ -161,28 +162,27 @@ async function batchProccessing(key){
 
             // index +=1;
             await fetch(url).then((response) => response.blob()).then((blob) => {
-                processJsonBlob(blob).then((dataURLs) => {
-                    console.log(dataURLs)
-                    blobs = []
-                    dataURLs.forEach((dataURL) => {
-                        console.log(dataURL)
-                        console.log(dataURL['data'])
-                        blobs.push(bufferToBlob(dataURL['data']));
-                    });
+                    console.log(blob)
+                    // blobs = []
+                    // dataURLs.forEach((dataURL) => {
+                    //     console.log(dataURL)
+                    //     console.log(dataURL['data'])
+                    //     blobs.push(bufferToBlob(dataURL['data']));
+                    // });
+                    // blob = new Blob(blob, { type: 'application/pdf' });
                     if(index == 0){
                         console.log('finish proccessing first bach')
                         console.log(blob, "blob")
                         
-                        batchBlobs.push({key: key, total: batch.total, current: 0, [index]: blobs})
+                        batchBlobs.push({key: key, total: batch.total, current: 0, [index]: blob})
                     }else{
                         console.log('proccessing batch')
                         let edit = batchBlobs.find(obj => obj.key == key)
                         console.log(edit)
-                        edit[index] = blobs;
+                        edit[index] = blob;
                     }
                    index++
 
-                });
              
 
             })
