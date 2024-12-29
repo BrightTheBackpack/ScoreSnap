@@ -4,7 +4,6 @@ import request from "request";
 const PDFDocument  = require("pdfkit");
 import sharp from 'sharp';
 const { Readable } = require("stream"); // Node.js stream module
-const PDFMerge = require('pdf-merge');
 const { PDFDocument: PDFLibDocument } = require('pdf-lib');
 
 
