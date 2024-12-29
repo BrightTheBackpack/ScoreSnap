@@ -18,7 +18,7 @@ async function grab() {
 }
 document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    const regexMatch = /musescore\.com\/[^/]+\/scores\/[^/]+/;
+    const regexMatch = /(https:\/\/)?musescore\.com\/user(\/\d+)?\/scores\/\d+/;
 
     if (!regexMatch.test(tab.url)) {
         document.getElementById("msg").innerText = "Please go to a musescore.com score page to use this extension";

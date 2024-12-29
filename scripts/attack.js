@@ -5,6 +5,7 @@
 // const  svg2pdf  = window.svg2pdf && window.svg2pdf.svg2pdf;
 
 // const  SVGtoPDF = window.svgtopdfkit && window.svgtopdfkit.SVGtoPDF;
+import { BlobClient } from 'https://cdn.jsdelivr.net/npm/@vercel/blob@0.27.0/+esm';
 
 console.log("Content script loaded.");
 const apiUrl = 'https://score-snap.vercel.app'; // Replace with your server's URL and port
@@ -43,6 +44,12 @@ chrome.runtime.onMessage.addListener(  (message, sender, sendResponse) => {
     }
     return true;
 });
+const uploadFile = async (file) => {
+    const client = new BlobClient({token: 'token'});
+    const {url, key} = await client.upload(file);
+    console.log('file uploaded')
+    return url;
+};
 async function batchMessage(data, sendResponse){
     const response = await(batchFinalize(data))
     sendResponse({status: 'done', data: response});
@@ -96,17 +103,17 @@ async function batchFinalize(key){
      let spreadBlobs = Object.values(blobs).filter(item => item instanceof Blob).flat();
      const formData = new FormData();
     //  Append image blobs or files here instead of Data URLs
-        spreadBlobs.forEach((imageBlob, index) => {
-            // Ensure the blob has the correct type
-            const blob = new Blob([imageBlob], { type:  'application/pdf' });
-            formData.append('images', blob, `image-${index}.png`);
-        });
+        // spreadBlobs.forEach((imageBlob, index) => {
+        //     // Ensure the blob has the correct type
+        //     const blob = new Blob([imageBlob], { type:  'application/pdf' });
+        //     formData.append('images', blob, `image-${index}.png`);
+        // });
         console.log(spreadBlobs, 'spreadBlobs')
-        // const urlParams = new URLSearchParams({ urls: spreadBlobs.join(',') });
-        await fetch(`${apiUrl}/pdffrombatch`,{
+        const urlParams = new URLSearchParams({ urls: spreadBlobs.join(',') });
+        await fetch(`${apiUrl}/pdffrombatch?urls=${urlParams}`,{
             method: 'POST',
       
-            body: formData
+            // body: formData
         }).then((response) => response.blob()).then((blob) => {
             let div = document.getElementById('aside-container-unique');
             console.log(div)
@@ -173,13 +180,15 @@ async function batchProccessing(key){
                     if(index == 0){
                         console.log('finish proccessing first bach')
                         console.log(blob, "blob")
-                        
-                        batchBlobs.push({key: key, total: batch.total, current: 0, [index]: blob})
+                        const url = uploadFile(blob)
+                        batchBlobs.push({key: key, total: batch.total, current: 0, [index]: url})
                     }else{
                         console.log('proccessing batch')
                         let edit = batchBlobs.find(obj => obj.key == key)
+                        const url = uploadFile(blob)
+
                         console.log(edit)
-                        edit[index] = blob;
+                        edit[index] = url;
                     }
                    index++
 

@@ -93,15 +93,17 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="merged_pdf.pdf"');
 
 
-  console.log('batching')
-  const urls = req.files; 
-  console.log(urls)
+  // console.log('batching')
+  // const urls = req.files; 
+  // console.log(urls)
 
-  if(Array.isArray(urls)){
-    console.log('urls is an array')
-  }else{
-    console.log('urls is an', typeof urls)
-  }
+  // if(Array.isArray(urls)){
+  //   console.log('urls is an array')
+  // }else{
+  //   console.log('urls is an', typeof urls)
+  // }
+  let urls = decodeURIComponent( req.query.urls).split(",");
+
   const mergedPdf = await PDFLibDocument.create();
 
   const CHUNK_SIZE = 5;
@@ -111,6 +113,11 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
     for (const file of chunk) {
       try {
         console.log('processing image')
+        let bytes = null;
+        await fetch(file).then((response) => response.blob()).then((blob) => {
+           bytes = Buffer.from(blob.arrayBuffer(), 'base64');
+
+        });
         // // Optimize the image before adding to PDF
         // const buffer = await file.buffer; 
 
@@ -120,8 +127,6 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
         //   align: 'center', 
         //   valign: 'center' 
         // });
-        console.log(file['buffer'])
-        const bytes = Buffer.from(file['buffer'], 'base64');
         console.log(bytes)
         if (bytes.slice(0, 4).toString() !== '%PDF') {
           console.error('Invalid PDF file');
