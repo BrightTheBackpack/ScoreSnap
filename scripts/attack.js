@@ -5,10 +5,10 @@
 // const  svg2pdf  = window.svg2pdf && window.svg2pdf.svg2pdf;
 
 // const  SVGtoPDF = window.svgtopdfkit && window.svgtopdfkit.SVGtoPDF;
-import { BlobClient } from 'https://cdn.jsdelivr.net/npm/@vercel/blob@0.27.0/+esm';
+// import { BlobClient } from 'https://cdn.jsdelivr.net/npm/@vercel/blob@0.27.0/+esm';
 
 console.log("Content script loaded.");
-const apiUrl = 'https://score-snap.vercel.app'; // Replace with your server's URL and port
+const apiUrl = 'http://localhost:3000'; // Replace with your server's URL and port
 
 batchUrls = []
 batchBlobs = []
@@ -44,12 +44,7 @@ chrome.runtime.onMessage.addListener(  (message, sender, sendResponse) => {
     }
     return true;
 });
-const uploadFile = async (file) => {
-    const client = new BlobClient({token: 'token'});
-    const {url, key} = await client.upload(file);
-    console.log('file uploaded')
-    return url;
-};
+
 async function batchMessage(data, sendResponse){
     const response = await(batchFinalize(data))
     sendResponse({status: 'done', data: response});
@@ -100,8 +95,7 @@ async function batchFinalize(key){
 
      let blobs = batchBlobs.find(obj => obj.key == key)
      console.log(blobs, 'blobs')
-     let spreadBlobs = Object.values(blobs).filter(item => item instanceof Blob).flat();
-     const formData = new FormData();
+     let spreadBlobs = Object.values(blobs).filter(item => typeof item == "string").flat();
     //  Append image blobs or files here instead of Data URLs
         // spreadBlobs.forEach((imageBlob, index) => {
         //     // Ensure the blob has the correct type
@@ -110,7 +104,7 @@ async function batchFinalize(key){
         // });
         console.log(spreadBlobs, 'spreadBlobs')
         const urlParams = new URLSearchParams({ urls: spreadBlobs.join(',') });
-        await fetch(`${apiUrl}/pdffrombatch?urls=${urlParams}`,{
+        await fetch(`${apiUrl}/pdffrombatch?${urlParams}`,{
             method: 'POST',
       
             // body: formData
@@ -168,8 +162,10 @@ async function batchProccessing(key){
              batch.current += 1;
 
             // index +=1;
-            await fetch(url).then((response) => response.blob()).then((blob) => {
-                    console.log(blob)
+            await fetch(url).then((response) => response.json()).then((data) => {
+                    // console.log(data.url)
+                    // console.log(data['url'])
+                    // console.log(data.url.downloadUrl)
                     // blobs = []
                     // dataURLs.forEach((dataURL) => {
                     //     console.log(dataURL)
@@ -179,16 +175,14 @@ async function batchProccessing(key){
                     // blob = new Blob(blob, { type: 'application/pdf' });
                     if(index == 0){
                         console.log('finish proccessing first bach')
-                        console.log(blob, "blob")
-                        const url = uploadFile(blob)
-                        batchBlobs.push({key: key, total: batch.total, current: 0, [index]: url})
+                        console.log(data.url.downloadUrl, "url")
+                        batchBlobs.push({key: key, total: batch.total, current: 0, [index]: data.url.downloadUrl})
                     }else{
                         console.log('proccessing batch')
                         let edit = batchBlobs.find(obj => obj.key == key)
-                        const url = uploadFile(blob)
 
                         console.log(edit)
-                        edit[index] = url;
+                        edit[index] = data.url.downloadUrl;
                     }
                    index++
 

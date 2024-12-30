@@ -5,10 +5,11 @@ const PDFDocument  = require("pdfkit");
 import sharp from 'sharp';
 const { Readable } = require("stream"); // Node.js stream module
 const { PDFDocument: PDFLibDocument } = require('pdf-lib');
-
-
+const { PassThrough } = require('stream');
+const { put } = require ('@vercel/blob')
 const multer = require('multer');
 const upload = multer(); // Configure as needed (e.g., file size limits, destination)
+const { DOMParser } = require('xmldom');
 
 const XHR = require("xmlhttprequest").XMLHttpRequest;
 const targetUrl = "https://s3.ultimate-guitar.com/musescore.scoredata/g/c0251f563b2bcfa165121936c9e4ffeec0325429/score_4.svg?response-content-disposition=attachment%3B%20filename%3D%22score_4.svg%22&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=4SHNMJS3MTR9XKK7ULEP%2F20241110%2Fus-west%2Fs3%2Faws4_request&X-Amz-Date=20241110T062817Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Signature=ee974ae54e5469d86ca46ccf46b58729b192d2a56f3697395a5c3399afa3f315";
@@ -102,8 +103,9 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
   // }else{
   //   console.log('urls is an', typeof urls)
   // }
+  console.log(req.query.urls)
   let urls = decodeURIComponent( req.query.urls).split(",");
-
+console.log(urls)
   const mergedPdf = await PDFLibDocument.create();
 
   const CHUNK_SIZE = 5;
@@ -114,9 +116,9 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
       try {
         console.log('processing image')
         let bytes = null;
-        await fetch(file).then((response) => response.blob()).then((blob) => {
-           bytes = Buffer.from(blob.arrayBuffer(), 'base64');
-
+        await fetch(file).then((response) => response.blob()).then(async (blob) => {
+          const arrayBuffer = await blob.arrayBuffer(); // Wait for the array buffer
+          bytes = Buffer.from(arrayBuffer); // No need for 'base64' here; arrayBuffer is already binary data
         });
         // // Optimize the image before adding to PDF
         // const buffer = await file.buffer; 
@@ -140,7 +142,7 @@ app.post("/pdffrombatch",upload.array('images'), async (req, res) => {
         
         console.log(copiedPages)
         // Clear references to help with garbage collection
-        file.buffer = null;
+        // file.buffer = null;
       } catch (imageError) {
         console.error('Error processing image:', imageError);
         continue;
@@ -163,13 +165,21 @@ app.get("/batch", async (req, res) => {
   let quality = urls[urls.length-1]
   urls.pop()
   console.log(quality)
-  let width = Number(quality.split(" ") [0])//for some reason vercel likes " " and local likes "+" 
-  let height = Number(quality.split(" ") [1])
+  let width = Number(quality.split("+") [0])//for some reason vercel likes " " and local likes "+" 
+  let height = Number(quality.split("+") [1])
   // console.log(urls)
+  const chunks = [];
+
+  const stream = new PassThrough();
+  stream.on('data', chunk => chunks.push(chunk));
+  const bufferPromise = new Promise(resolve => {
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+
   const doc = new PDFDocument({
     autoFirstPage: false // Prevent automatic first page creation
   });
-  doc.pipe(res);
+  doc.pipe(stream);
   const processUrls = urls.map(async(url, index)=>{
     try{
       console.log(`Starting conversion ${index + 1}`);
@@ -178,11 +188,23 @@ app.get("/batch", async (req, res) => {
       if (!data || !data.includes("<svg")) {
         throw new Error(`Invalid SVG content from ${url}`);
       }
-      let png = await sharp(Buffer.from(data)).resize({ width: width, height: height }).png().toBuffer();
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(data, "image/svg+xml");
+
+      // Get the root SVG element
+      const svgElement = svgDoc.documentElement;
+
+      // Extract width and height attributes
+      const widthTemp = svgElement.getAttribute("width");
+      const heightTemp = svgElement.getAttribute("height");
+      let scale = widthTemp/width;
+      let height = heightTemp/scale;
+
+      let png = await sharp(Buffer.from(data)).resize({ width: Math.ceil(width), height: Math.ceil(height) }).png().toBuffer();
     //   const base64String = png.toString('base64');
 
     //  png = `data:image/png;base64,${base64String}`;
-
+      
       console.log(`Finished PNG ${index}`);
       return png;
       
@@ -202,6 +224,10 @@ app.get("/batch", async (req, res) => {
     });
   }
   doc.end();
+
+  const buffer = await bufferPromise;
+  const url = await put('files/batch/test.pdf', buffer, {access: 'public'});
+  res.json({url:url})
   // console.log('done')
   // res.send(results)
 

@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "Musescore Jammer",
+    "name": "ScoreSnap",
     "description": "download musescore files",
     "version": "1.0",
     "action": {
@@ -25,6 +25,10 @@
     "host_permissions": [
       "https://musescore.com/*"
     ],
+    "web_accessible_resources": [{
+      "resources": ["https://cdn.jsdelivr.net/npm/@vercel/blob@0.27.0/+esm"],
+      "matches": ["https://musescore.com/*"]
+    }],
     "permissions": [
         "activeTab",
         "scripting",
