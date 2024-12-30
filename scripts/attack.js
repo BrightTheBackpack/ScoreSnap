@@ -42,9 +42,22 @@ chrome.runtime.onMessage.addListener(  (message, sender, sendResponse) => {
         sendAResponseAudio2(sendResponse, message.data)
         return true;
     }
+    if(message.type === 'status'){
+        getStatus(sendResponse, message.data.key)
+    }
     return true;
 });
+async function getStatus(sendResponse, key){
+    let batch = batchUrls.find(obj => obj.key == key)
+    let current = batch.Acurrent -1;
+    if(current == batch.total){
+        sendResponse({status: 'done'})
+    }
+    else{
+        sendResponse({status: `Batching: ${current}/${batch.total}`})
+    }
 
+}
 async function batchMessage(data, sendResponse){
     const response = await(batchFinalize(data))
     sendResponse({status: 'done', data: response});
@@ -88,7 +101,7 @@ async function batchFinalize(key){
     let batch = batchUrls.find(obj => obj.key == key)
     
     console.log(batch)
-     while(batch.current < batch.total + 1){//to ensure they all finish prior to batch finalize
+     while(batch.Acurrent < batch.total){//to ensure they all finish prior to batch finalize
         await delay(1000);
      }
 
@@ -151,7 +164,7 @@ async function batchProccessing(key){
     let batch = batchUrls.find(obj => obj.key == key)
     console.log(batch)
     let index = 0;
-    while(batch.current < batch.total){
+    while(batch.Acurrent < batch.total){
         console.log('waiting for batches to finish')
         console.log(batch.current, batch.total)
         if(batch.current<batch.exists ){//try incrementin batch.current beofre and after the fetch
@@ -162,7 +175,7 @@ async function batchProccessing(key){
              batch.current += 1;
 
             // index +=1;
-            await fetch(url).then((response) => response.json()).then((data) => {
+             fetch(url).then((response) => response.json()).then((data) => {
                     // console.log(data.url)
                     // console.log(data['url'])
                     // console.log(data.url.downloadUrl)
@@ -184,6 +197,7 @@ async function batchProccessing(key){
                         console.log(edit)
                         edit[index] = data.url.downloadUrl;
                     }
+                    batch.Acurrent+=1;
                    index++
 
              
@@ -312,17 +326,18 @@ async function grabber(quality){
         pagenum = images[0].alt.slice(-10).replace(/^\D+|\D+$/g, "")
         // canvas.width = 1000; // Adjust as needed
         // canvas.height = 2000; 
+        console.log(pagenum)
         let index = 1;
         let smash = true
         let key = 0; 
-        let total = Math.ceil(pagenum/10) //roudn up
-        threshold = 10;
+        threshold = 4;
         if(quality.width < 1000){
-            threshold = 15
+            threshold = 14
         }
         if(quality.width < 500){
-            threshold = 20
+            threshold = 19
         }
+        let total = Math.ceil(pagenum/(threshold)) //roudn up
         if(pagenum > threshold){
             smash = false;
             key = (Math.random() + 1) * 164235 + Math.random() * 643267
@@ -350,14 +365,18 @@ async function grabber(quality){
                                     // console.log(img.src)
                                     allLinks.push(img.src);
                                     if((allLinks.length >((threshold)*index )-1 || allLinks.length==pagenum) && !smash){
+                                        if(allLinks.length==pagenum){
+                                            console.log('reached end')
+                                        }
                                         console.log("reached 10 images")
-                                        Tenlinks = allLinks.slice(((threshold-1)*index)-(threshold-1), (threshold-1)*index)
+                                        Tenlinks = allLinks.slice((index-1) * threshold, index*threshold)
                                         console.log(allLinks)
+                                        console.log(Tenlinks)
                                         Tenlinks.push(quality)
                                         const urlParams = new URLSearchParams({ urls: Tenlinks.join(',') });
                                         const batchedURL = `${apiUrl}/batch?${urlParams.toString()}`;    
                                         if(index==1){
-                                            batchUrls.push({key: key,total:total, current: 0, exists: 1, [index]: batchedURL})
+                                            batchUrls.push({key: key,total:total, current: 0, Acurrent:0, exists: 1, [index]: batchedURL})
                                             batchProccessing(key)
                                         }else{
                                             let edit = batchUrls.find(obj => obj.key == key)

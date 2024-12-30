@@ -180,13 +180,13 @@ app.get("/batch", async (req, res) => {
     autoFirstPage: false // Prevent automatic first page creation
   });
   doc.pipe(stream);
-  const processUrls = urls.map(async(url, index)=>{
+  for(let img in urls){
     try{
-      console.log(`Starting conversion ${index + 1}`);
-      const response = await fetch(url);
+      console.log(`Starting conversion ${img + 1}`);
+      const response = await fetch(urls[img]);
       const data = await response.text();
       if (!data || !data.includes("<svg")) {
-        throw new Error(`Invalid SVG content from ${url}`);
+        throw new Error(`Invalid SVG content from ${urls[img]}`);
       }
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(data, "image/svg+xml");
@@ -201,28 +201,63 @@ app.get("/batch", async (req, res) => {
       let height = heightTemp/scale;
 
       let png = await sharp(Buffer.from(data)).resize({ width: Math.ceil(width), height: Math.ceil(height) }).png().toBuffer();
-    //   const base64String = png.toString('base64');
-
-    //  png = `data:image/png;base64,${base64String}`;
-      
-      console.log(`Finished PNG ${index}`);
-      return png;
-      
-
-    }catch(e){
-      console.log(e)
-    }
-  })
-  const results = await Promise.all(processUrls);
-  results.sort((a, b) => a.index - b.index);
-  for (const result of results) {
-    doc.addPage({ size: [612, 792] });
-    doc.image(result, 0, 0, { 
+      doc.addPage({ size: [612, 792] });
+    doc.image(png, 0, 0, { 
       fit: [612, 792],
       align: 'center', 
       valign: 'center' 
     });
+    if (global.gc) {
+      global.gc();
+    }
+
+    }catch(e){
+      console.log(e)
+    }
   }
+  // const processUrls = urls.map(async(url, index)=>{
+  //   try{
+  //     console.log(`Starting conversion ${index + 1}`);
+  //     const response = await fetch(url);
+  //     const data = await response.text();
+  //     if (!data || !data.includes("<svg")) {
+  //       throw new Error(`Invalid SVG content from ${url}`);
+  //     }
+  //     const parser = new DOMParser();
+  //     const svgDoc = parser.parseFromString(data, "image/svg+xml");
+
+  //     // Get the root SVG element
+  //     const svgElement = svgDoc.documentElement;
+
+  //     // Extract width and height attributes
+  //     const widthTemp = svgElement.getAttribute("width");
+  //     const heightTemp = svgElement.getAttribute("height");
+  //     let scale = widthTemp/width;
+  //     let height = heightTemp/scale;
+
+  //     let png = await sharp(Buffer.from(data)).resize({ width: Math.ceil(width), height: Math.ceil(height) }).png().toBuffer();
+  //   //   const base64String = png.toString('base64');
+
+  //   //  png = `data:image/png;base64,${base64String}`;
+      
+  //     console.log(`Finished PNG ${index}`);
+  //     return png;
+      
+
+  //   }catch(e){
+  //     console.log(e)
+  //   }
+  // })
+  // const results = await Promise.all(processUrls);
+  // results.sort((a, b) => a.index - b.index);
+  // for (const result of results) {
+  //   doc.addPage({ size: [612, 792] });
+  //   doc.image(result, 0, 0, { 
+  //     fit: [612, 792],
+  //     align: 'center', 
+  //     valign: 'center' 
+  //   });
+  // }
   doc.end();
 
   const buffer = await bufferPromise;

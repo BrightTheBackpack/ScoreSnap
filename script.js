@@ -2,6 +2,9 @@
 grabbing = false;
 let midi_url = null;
 let auth = null;
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 async function grab() {
     const [tab] = await chrome.tabs.query({active: true});
     console.log(tab);
@@ -44,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 resolve(response.data);
             });
         });
-        const response2 = await new Promise((resolve) => {
+        const response2 =  new Promise((resolve) => {
             chrome.tabs.sendMessage(tab.id, {type: 'pdf2', data: response}, (response) => {
                 console.log('4. Got response:', response);
                 if(response.status == 'done'){
@@ -62,6 +65,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                 resolve(response);
             });
         });
+        console.log('continuing')
+        let finished = false;
+        if(response.type == "batch"){
+            while(!finished) {
+                const statusCheck = new Promise((resolve) => {
+                    chrome.tabs.sendMessage(tab.id, {type: 'status', data: response}, (response) => {
+                        if(response.status === 'done'){
+                            finished = true;
+                            document.getElementById("msg").innerText = "Almost done...";
+
+                        } else {
+                            document.getElementById("msg").innerText = response.status;
+                        }
+                        resolve(response);
+                    });
+                });
+        
+                // Wait for status check to complete
+                await statusCheck;
+                await delay(1000);
+            }
+        }
+      
+
+        // })
         
     });
     document.getElementById("midi").addEventListener("click", async () => {
