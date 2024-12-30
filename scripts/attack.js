@@ -6,9 +6,9 @@
 
 // const  SVGtoPDF = window.svgtopdfkit && window.svgtopdfkit.SVGtoPDF;
 // import { BlobClient } from 'https://cdn.jsdelivr.net/npm/@vercel/blob@0.27.0/+esm';
-
+//https://score-snap.vercel.app
 console.log("Content script loaded.");
-const apiUrl = 'http://localhost:3000'; // Replace with your server's URL and port
+const apiUrl = 'https://score-snap.vercel.app'; // Replace with your server's URL and port
 
 batchUrls = []
 batchBlobs = []
