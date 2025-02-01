@@ -26,6 +26,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!regexMatch.test(tab.url) && !regexMatch2.test(tab.url)) {
         document.getElementById("msg").innerText = "Please go to a musescore.com score page to use this extension";
+        let buttons = document.getElementsByTagName("button")
+        let buttonlength = buttons.length;
+        for (let i = 0; i < buttonlength+1; i++) {
+            buttons[i].setAttribute("disabled", "true");
+            buttons[i].classList.remove("primary");
+            buttons[i].classList.remove("secondary");
+            buttons[i].classList.add("disabled");
+
+            // buttons[i].style.backgroundColor = "gray";
+            console.log('removed')
+        }
         return;
     }
     document.getElementById("button").addEventListener("click", async () => {
