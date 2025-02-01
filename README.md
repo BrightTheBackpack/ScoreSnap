@@ -1,6 +1,22 @@
 # ScoreSnap!
-## Download PDF's from musescore, completetly Free and Open Source!
+## A Chrome extension that lets you download sheet music scores from MuseScore with ease.
 
-To use, download scoresnap.zip from
-https://github.com/BrightTheBackpack/ScoreSnap/releases/tag/v1
-unzip it, go to chrome://extenions in your browser, turn on developer mode, click "load unpacked", and select the folder
+## Features
+Download PDF sheet music
+Download MIDI files
+Download MP3 files
+
+## Installation Instructions
+1. Download the Zip
+2. Unzip it
+3. On chrome, go to chrome://extensions/
+4. Enable Developer Mode
+5. Select the "Load Unpacked" button
+6. Select the unzipped folder
+
+## Usage
+Navigate to a MuseScore sheet music page.
+Click on the ScoreSnap extension icon.
+Click the button corresponding to the file you want to download
+For pdfs, select which quality you want it to be
+
