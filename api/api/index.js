@@ -260,7 +260,7 @@ app.get("/proccess", async (req, res) => {
           console.log(`Starting conversion ${index + 1}`);
           const response = await fetch(url);
           const data = await response.text();
-          print(data)
+          console.log(data)
           if (!data || !data.includes("<svg")) {
             throw new Error(`Invalid SVG content from ${url}`);
           }
