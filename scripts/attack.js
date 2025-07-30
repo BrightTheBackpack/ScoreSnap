@@ -289,7 +289,8 @@ async function audio(){
                        
                     },500)
                 }
-               
+                playbutton.click()
+
             },100)
       
         }else{
