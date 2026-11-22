@@ -233,111 +233,131 @@ app.get("/batch", async (req, res) => {
 
 })
 app.get("/proccess", async (req, res) => {
+  try {
+    let urls = decodeURIComponent(req.query.urls || "").split(",");
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="merged_pdf.pdf"');
-  
-    const doc = new PDFDocument({
-      autoFirstPage: false // Prevent automatic first page creation
-    });    
+    const quality = urls.pop();
+    const [width, height] = quality.split(" ").map(Number);
 
-    let urls = decodeURIComponent( req.query.urls).split(",");
-    if (!urls || urls.length === 0) {
-      throw new Error("No URLs provided");
+    if (
+      urls.length === 0 ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      return res.status(400).json({
+        error: "Invalid URLs or image dimensions"
+      });
     }
-    let index = 0;
-    doc.pipe(res);
-    let verification = Array.from({length: urls.length-2}, (_,i) => i+1);
-    console.log(urls)
-    let quality = urls[urls.length-1]
-    let width = Number(quality.split(" ") [0])
-    let height = Number(quality.split(" ") [1])
-    urls.pop()
-    const processUrls = urls.map(async(url, index)=>{
-      
-      if(url.includes(".svg")){
-        try {
-          console.log(`Starting conversion ${index + 1}`);
-          const response = await fetch(url);
-          const data = await response.text();
-          console.log(data)
-          if (!data || !data.includes("<svg")) {
-            throw new Error(`Invalid SVG content from ${url}`);
-          }
-  
-          // Optimize the conversion with reduced quality and size
-          const png = await sharp(Buffer.from(data)).resize({ width: width, height: height }).png().toBuffer();   
-          console.log(`Processing PNG ${index}`);
-          verification = verification.filter(item => item !== (index+1));
-          return { type: 'png', data: png, index };
-        } catch (error) {
-          console.error(`Error processing SVG ${index + 1}:`, error);
-          return { type: 'error', index };
-        }
-  
-      }else if(url.includes(".png")){
-        try {
-          const img = await getImageDataUri(url);
-          console.log(`Processing PNG ${index}`);
-          verification = verification.filter(item => item !== (index+1));
 
-          return { type: 'uri', data: img, index };
+    const doc = new PDFDocument({
+      autoFirstPage: false
+    });
+
+    const results = await Promise.all(
+      urls.map(async (url, index) => {
+        try {
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = Buffer.from(
+            await response.arrayBuffer()
+          );
+
+          if (url.includes(".svg")) {
+            const png = await sharp(data)
+              .resize(width, height)
+              .png()
+              .toBuffer();
+
+            return { type: "png", data: png, index };
+          }
+
+          if (url.includes(".png")) {
+            // Verify that the downloaded data is actually an image.
+            const metadata = await sharp(data).metadata();
+
+            if (metadata.format !== "png") {
+              throw new Error("Invalid PNG");
+            }
+
+            return { type: "png", data, index };
+          }
+
+          throw new Error("Unsupported image format");
+
         } catch (error) {
-          console.error(`Error processing PNG ${index + 1}:`, error);
-          return { type: 'error', index };
+          console.error(`Image ${index} failed:`, error);
+          return null;
         }
-      }
-      return { type: 'error', index };
-    })
-    const results = await Promise.all(processUrls);
-    console.log(verification)
-   
-    // Sort by index to maintain order
-    results.sort((a, b) => a.index - b.index);
-    for (const result of results) {
-      if(result.type === 'error'){
-        console.log('error')
-        continue;
-      }
-      // doc.addPage({ size: [612, 792] });
+      })
+    );
+
+    const validResults = results
+      .filter(Boolean)
+      .sort((a, b) => a.index - b.index);
+
+    if (validResults.length === 0) {
+      return res.status(422).json({
+        error: "No images could be processed",
+        totalImages: urls.length
+      });
+    }
+
+    for (const result of validResults) {
       doc.addPage({ size: [612, 792] });
 
-      if (result.type === 'png') {
-        doc.image(result.data, 0, 0, { 
-          fit: [612, 792],
-          align: 'center', 
-          valign: 'center' 
-        });
-      } else if (result.type === 'uri') {
-        doc.image(result.data, 0, 0, { 
-          fit: [612, 792] 
-        });
-      }
-
-      
-      doc.flushPages();
+      doc.image(result.data, 0, 0, {
+        fit: [612, 792],
+        align: "center",
+        valign: "center"
+      });
     }
-    
-    console.log('All files processed, ending document');
-    doc.on('end', () => {
-      console.log('PDF document ended successfully');
+
+    const chunks = [];
+
+    doc.on("data", chunk => chunks.push(chunk));
+
+    doc.on("end", () => {
+      const pdf = Buffer.concat(chunks);
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="merged_pdf.pdf"'
+      );
+
+      res.end(pdf);
     });
-    
-    // Handle any errors during PDF creation
-    doc.on('error', (err) => {
-      console.error('Error during PDF creation:', err);
+
+    doc.on("error", error => {
+      console.error("PDF generation failed:", error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "PDF generation failed"
+        });
+      } else {
+        res.destroy(error);
+      }
     });
+
     doc.end();
 
+  } catch (error) {
+    console.error(error);
 
- 
-  // const buffer = await new Promise((resolve, reject) => {
-  //   doc.pipe(res).on('finish', resolve).on('error', reject);
-  // });
-
-  // Set headers to indicate PDF content
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: error.message
+      });
+    }
+  }
 });
-
 
 const PORT = 1891;
 app.listen(PORT, () => {
